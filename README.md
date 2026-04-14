@@ -1,1 +1,66 @@
-DFA MinimizerOverviewThe DFA Minimizer is a specialized web-based tool designed for students and educators in Theory of Computation. It provides an interactive environment to define Deterministic Finite Automata (DFA), visualize their structures, and perform state reduction using the Table-Filling (Myhill-Nerode) algorithm.Key FeaturesInteractive DFA Builder: Define states, input alphabets, start states, and accept states through a clean sidebar interface.Dynamic Transition Table: Fill in the transition function $\delta$ in real-time. The tool automatically generates a editable table based on your defined alphabet and states.State-of-the-Art Visualization: High-DPI canvas rendering with support for curved arrows, self-loops, and multiple layout modes (Circle, Linear, Grid).Step-by-Step Minimization: Watch the partition refinement process unfold. The tool breaks down initial partitioning (accepting vs. non-accepting) and subsequent refinements until a stable fixed point is reached.Live String Tester: Input strings to see a real-time trace of the automaton's path. Highlights active states and transitions to demonstrate acceptance or rejection.Theming & Export: Toggle between Light and Dark modes and export your DFA graphs as PNG images for academic reports.Technical StackCore Logic: JavaScript (Table-Filling / Myhill-Nerode Algorithm).Rendering: HTML5 Canvas with custom-built Renderer class for HiDPI support.Styling: CSS3 with CSS Variables for dynamic color schemes (Violet, Teal, Amber, Rose, Slate).Typography: Space Mono (for technical data) and DM Sans (for UI).How to UseDefine DFA: Enter your states (e.g., q0,q1,q2) and alphabet (e.g., 0,1). Set your start and accept states.Build Table: Click "Build Transition Table" and fill in the target states for each transition.Minimize: Click "Minimize DFA" to view the reduction (e.g., seeing a 5-state DFA reduced to 3 states).Analyze:Use the Visualizer tab to compare "Before" and "After" graphs.Use the Steps tab to see the mathematical logic behind the state merges.Use the String Tester to verify the minimized DFA's behavior against specific inputs.Developer ContextThis project was developed to assist in university-level coursework, specifically for students at Netaji Subhas University of Technology (NSUT) studying Theory of Automata and Optimization Techniques.
+========================================================================
+                         DFA MINIMIZER
+                  Theory of Computation Tool
+========================================================================
+
+1. OVERVIEW
+-----------
+The DFA Minimizer is an interactive web-based application designed to 
+visualize and simplify Deterministic Finite Automata. It implements 
+the Myhill-Nerode (Table-Filling) algorithm to reduce the number of 
+states in a given DFA while maintaining its original language 
+recognition capabilities.
+
+This tool was developed to assist students and educators in the 
+"Theory of Automata" and "Optimization Techniques" courses.
+
+
+2. CORE FEATURES
+----------------
+* DYNAMIC BUILDER: Define states, alphabets, and transitions through 
+    a real-time editable table.
+* AUTOMATED MINIMIZATION: Processes the DFA to find and merge 
+    equivalent states, providing a "Before vs. After" comparison.
+* STEP-BY-STEP REFINEMENT: Visualizes the partition refinement 
+    process, showing how states are grouped and split.
+* LIVE STRING TESTER: Real-time trace of input strings through the 
+    automaton with visual feedback on acceptance or rejection.
+* HIGH-DPI VISUALIZATION: Custom canvas rendering with support for 
+    curved arrows, self-loops, and various layout modes (Circle, 
+    Linear, Grid).
+
+
+3. TECHNICAL SPECIFICATIONS
+---------------------------
+* Language: HTML5, CSS3, JavaScript (ES6+).
+* Algorithm: Table-Filling / Myhill-Nerode Algorithm.
+* Rendering: HTML5 Canvas API with custom HiDPI scaling.
+* Styling: CSS Variables with support for Light/Dark mode and 
+    multiple color schemes (Violet, Teal, Amber, Rose, Slate).
+
+
+4. HOW TO USE
+-------------
+1.  DEFINE: Input your state set and alphabet in the sidebar.
+2.  TRANSITION: Fill out the generated Transition Function (delta) 
+    table.
+3.  MINIMIZE: Click "Minimize DFA" to trigger the algorithm.
+4.  VISUALIZE: Toggle between the "Visualizer" for graph comparisons 
+    and "Steps" for the mathematical breakdown.
+5.  TEST: Use the "String Tester" to verify that both the original and 
+    minimized DFA behave identically on specific inputs.
+
+
+5. ACADEMIC RELEVANCE
+---------------------
+This project serves as a practical implementation of concepts 
+taught at Netaji Subhas University of Technology (NSUT), specifically 
+targeting the optimization of finite state machines.
+
+
+6. DEVELOPER
+------------
+Developed by a Computer Science undergraduate at NSUT.
+Project Date: April 2026.
+
+========================================================================
