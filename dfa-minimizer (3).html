@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFA Minimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --mono:'Space Mono',monospace;
+  --body:'DM Sans',sans-serif;
+  --bg:#f8f7f4;--bg2:#ffffff;--bg3:#f0ede8;--bg4:#e8e4de;
+  --border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
+  --text:#1a1917;--text2:#5c5955;--text3:#9c9894;
+  --shadow:0 1px 3px rgba(0,0,0,0.07),0 4px 16px rgba(0,0,0,0.05);
+  --accent:#7c3aed;--accent2:#4f46e5;--acl:#ede9fe;--act:#4c1d95;
+  --nf:#ede9fe;--nb:#7c3aed;--nt:#4c1d95;--ar:#7c3aed;--sa:#4f46e5;
+  --af:#fef3c7;--ab:#d97706;
+  --okf:#d1fae5;--okb:#059669;
+  --nof:#fee2e2;--nob:#dc2626;
+}
+[data-dark]{
+  --bg:#0f0e0d;--bg2:#1a1917;--bg3:#232220;--bg4:#2d2c29;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
+  --text:#f5f4f0;--text2:#a09d98;--text3:#6b6865;
+  --nf:#2d1f6e;--nt:#c4b5fd;
+  --af:#3d2e04;--ab:#f59e0b;
+  --okf:#064e3b;--okb:#10b981;
+  --nof:#450a0a;--nob:#f87171;
+}
+[data-scheme="teal"]{--accent:#059669;--accent2:#0891b2;--acl:#d1fae5;--act:#065f46;--nf:#d1fae5;--nb:#059669;--nt:#064e3b;--ar:#059669;--sa:#0891b2}
+[data-scheme="amber"]{--accent:#d97706;--accent2:#dc2626;--acl:#fef3c7;--act:#92400e;--nf:#fef3c7;--nb:#d97706;--nt:#78350f;--ar:#d97706;--sa:#dc2626}
+[data-scheme="rose"]{--accent:#e11d48;--accent2:#9333ea;--acl:#ffe4e6;--act:#9f1239;--nf:#ffe4e6;--nb:#e11d48;--nt:#881337;--ar:#e11d48;--sa:#9333ea}
+[data-scheme="slate"]{--accent:#374151;--accent2:#111827;--acl:#f3f4f6;--act:#1f2937;--nf:#f3f4f6;--nb:#374151;--nt:#111827;--ar:#374151;--sa:#111827}
+
+html,body{height:100%;font-family:var(--body);background:var(--bg);color:var(--text);overflow-x:hidden;transition:background .2s,color .2s}
+
+/* BG grid */
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:40px 40px;opacity:.55}
+.bg-glow{position:fixed;top:-180px;right:-180px;z-index:0;pointer-events:none;
+  width:520px;height:520px;border-radius:50%;
+  background:radial-gradient(circle,var(--acl) 0%,transparent 70%);opacity:.45}
+
+/* HEADER */
+.hdr{position:sticky;top:0;z-index:100;height:58px;
+  display:flex;align-items:center;gap:16px;padding:0 24px;
+  background:rgba(248,247,244,.88);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border)}
+[data-dark] .hdr{background:rgba(15,14,13,.88)}
+.hdr-logo{display:flex;flex-direction:column;justify-content:center;gap:1px}
+.hdr-title{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.hdr-sub{font-size:11px;color:var(--text3);font-family:var(--mono)}
+.hdr-nav{display:flex;gap:2px;margin:0 auto}
+.nav-btn{padding:6px 14px;border:none;background:transparent;color:var(--text2);
+  cursor:pointer;border-radius:8px;font-family:var(--body);font-size:13px;font-weight:500;transition:all .15s}
+.nav-btn:hover{background:var(--bg3);color:var(--text)}
+.nav-btn.active{background:var(--acl);color:var(--act)}
+.hdr-actions{display:flex;gap:6px}
+.ibtn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border2);
+  background:var(--bg2);color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s}
+.ibtn:hover{background:var(--bg3);color:var(--text)}
+
+/* LAYOUT */
+.layout{position:relative;z-index:1;display:grid;grid-template-columns:296px 1fr;height:calc(100vh - 58px);overflow:hidden}
+
+/* SIDEBAR */
+.sidebar{overflow-y:auto;overflow-x:hidden;border-right:1px solid var(--border);background:var(--bg2);scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+.sec{padding:16px;border-bottom:1px solid var(--border);animation:fadeup .3s ease}
+@keyframes fadeup{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sec-num{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--accent);background:var(--acl);padding:2px 6px;border-radius:4px}
+.sec-hdr h3{font-size:13px;font-weight:600;color:var(--text)}
+.lbl{display:block;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.inp{width:100%;padding:7px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-size:13px;font-family:var(--mono);outline:none;transition:border-color .15s,box-shadow .15s}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--acl)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px;display:block}
+.fg{margin-bottom:10px}
+.frow{display:flex;gap:8px}
+.f1{flex:1}
+.btn-p{width:100%;padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;
+  font-family:var(--body);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;margin-top:4px}
+.btn-p:hover{opacity:.88;transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn-p:active{transform:translateY(0)}
+.btn-min{background:linear-gradient(135deg,var(--accent),var(--accent2));font-size:14px}
+.btn-sm{padding:5px 12px;font-size:12px;font-weight:500;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);cursor:pointer;transition:all .15s}
+.btn-sm:hover{background:var(--bg3)}
+
+/* Delta table */
+.tscroll{overflow-x:auto;border-radius:8px;border:1px solid var(--border);margin-bottom:10px}
+.dtbl{width:100%;border-collapse:collapse;font-size:12px}
+.dtbl th{padding:6px 8px;background:var(--bg3);font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text2);text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
+.dtbl th:first-child{text-align:left}
+.dtbl td{padding:0;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.dtbl td:last-child,.dtbl th:last-child{border-right:none}
+.dtbl tr:last-child td{border-bottom:none}
+.dtbl td input{width:100%;padding:6px 8px;border:none;background:transparent;color:var(--text);font-size:12px;font-family:var(--mono);text-align:center;outline:none;transition:background .15s}
+.dtbl td input:focus{background:var(--acl)}
+.rlbl{padding:6px 8px;background:var(--bg3);font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text2);white-space:nowrap;border-right:1px solid var(--border2)}
+.rlbl.acc{color:var(--ar)}.rlbl.sta{color:var(--sa)}
+.qex{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.qex-lbl{font-size:11px;color:var(--text3)}
+.chip{padding:3px 10px;font-size:11px;font-weight:500;border:1px solid var(--border2);border-radius:20px;background:transparent;color:var(--text2);cursor:pointer;transition:all .15s}
+.chip:hover{background:var(--acl);border-color:var(--accent);color:var(--act)}
+
+/* Toggles & segments */
+.opts{display:flex;flex-direction:column;gap:8px}
+.tgl{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text);user-select:none}
+.tgl input{display:none}
+.ttrack{width:32px;height:18px;border-radius:9px;background:var(--bg4);position:relative;flex-shrink:0;transition:background .2s}
+.ttrack::after{content:'';position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tgl input:checked+.ttrack{background:var(--accent)}
+.tgl input:checked+.ttrack::after{transform:translateX(14px)}
+.seg{display:flex;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
+.seg-btn{flex:1;padding:6px 10px;font-size:12px;font-weight:500;border:none;background:transparent;color:var(--text2);cursor:pointer;transition:all .15s}
+.seg-btn:hover{background:var(--bg3)}
+.seg-btn.active{background:var(--accent);color:#fff}
+.swatches{display:flex;gap:6px;margin-top:4px}
+.sw{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:all .15s}
+.sw:hover{transform:scale(1.1)}
+.sw.active{border-color:var(--text);box-shadow:0 0 0 2px var(--bg2),0 0 0 4px var(--accent)}
+
+/* CONTENT */
+.content{overflow:hidden;position:relative;background:var(--bg)}
+.view{display:none;flex-direction:column;height:100%;padding:20px 24px;overflow:hidden}
+.view.active{display:flex}
+.vhdr{display:flex;align-items:center;gap:14px;margin-bottom:14px;flex-shrink:0}
+.vhdr h2{font-size:20px;font-weight:600;color:var(--text);letter-spacing:-.02em}
+.vsub{color:var(--text3);font-weight:400;font-size:16px}
+.stats{display:flex;gap:8px;align-items:center}
+.spill{font-size:12px;font-family:var(--mono);background:var(--bg3);color:var(--text2);padding:3px 10px;border-radius:20px;border:1px solid var(--border)}
+.spill.ac{background:var(--acl);color:var(--act);border-color:var(--accent)}
+
+/* Canvas */
+.cbox{flex:1;position:relative;overflow:hidden;border-radius:18px;border:1px solid var(--border);background:var(--bg2);box-shadow:var(--shadow)}
+.cbox canvas{display:block;width:100%;height:100%;image-rendering:auto}
+.cempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--text3);pointer-events:none}
+.cempty.gone{display:none}
+.eico{font-size:36px;opacity:.3;animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.6}}
+.cempty p{font-size:13px;text-align:center;max-width:180px}
+
+/* Dual canvas */
+.dual{flex:1;display:flex;gap:0;overflow:hidden;min-height:0}
+.cpane{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+.plbl{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.pstats{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap}
+.divv{width:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.arrr{font-size:18px;color:var(--text3);animation:bx 2s ease-in-out infinite}
+@keyframes bx{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+.rbadge{padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;font-family:var(--mono);background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;animation:pop .4s ease}
+@keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+
+/* Steps */
+#steps-body{flex:1;overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:var(--border2) transparent}
+.steps-wrap{display:flex;flex-direction:column;gap:10px}
+.scard{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg2);box-shadow:var(--shadow);opacity:0;animation:fadeup .35s ease forwards}
+.scard.final{border-color:var(--accent)}
+.scard-hdr{display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--bg3);border-bottom:1px solid var(--border)}
+.snum{width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--mono);flex-shrink:0}
+.stitle{font-size:13px;font-weight:600;color:var(--text)}
+.ssub{font-size:11px;color:var(--text3);margin-left:auto}
+.sbody{padding:12px 14px}
+.pgroups{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.pgrp{padding:4px 10px;border-radius:8px;border:1px solid;font-size:12px;font-family:var(--mono);font-weight:700}
+.sdesc{font-size:12px;color:var(--text3);margin-top:4px}
+.dtbl2{border-collapse:collapse;font-size:11px;font-family:var(--mono)}
+.dtbl2 th,.dtbl2 td{padding:4px 8px;border:1px solid var(--border);text-align:center}
+.dtbl2 th{background:var(--bg3);font-weight:700;color:var(--text2)}
+.dx{color:#dc2626;font-weight:700}.deq{color:#059669;font-weight:700}
+.mtbl{width:100%;border-collapse:collapse;font-size:12px;font-family:var(--mono)}
+.mtbl th,.mtbl td{padding:6px 10px;border:1px solid var(--border);text-align:left}
+.mtbl th{background:var(--bg3);font-weight:700;color:var(--text2);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+.sctr{font-size:12px;font-family:var(--mono);color:var(--text2);padding:0 8px}
+.empty-st{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--text3)}
+
+/* Tester */
+.tlay{flex:1;display:grid;grid-template-columns:370px 1fr;gap:20px;overflow:hidden;min-height:0}
+.tinput{display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.tcanvas{display:flex;flex-direction:column;gap:8px}
+.strwrap{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.strinput{width:100%;padding:10px 14px;border:1px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text);font-size:18px;font-family:var(--mono);letter-spacing:.1em;outline:none;transition:border-color .15s,box-shadow .15s;margin-bottom:8px}
+.strinput:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--acl)}
+.chrs{display:flex;flex-wrap:wrap;gap:4px;min-height:24px;margin-bottom:10px}
+.ch{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;font-family:var(--mono);font-size:13px;font-weight:700;border:1px solid var(--border2);background:var(--bg3);color:var(--text2);transition:all .2s}
+.ch.active{background:var(--acl);color:var(--act);border-color:var(--accent);transform:scale(1.1)}
+.ch.pass{background:var(--okf);color:var(--okb);border-color:var(--okb)}
+.ch.fail{background:var(--nof);color:var(--nob);border-color:var(--nob)}
+.tctrl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.resbox{padding:14px;border-radius:12px;border:1px solid;animation:pop .3s ease}
+.resbox.ok{background:var(--okf);border-color:var(--okb)}
+.resbox.no{background:var(--nof);border-color:var(--nob)}
+.restitle{font-size:16px;font-weight:700;font-family:var(--mono);margin-bottom:4px}
+.restitle.ok{color:var(--okb)}.restitle.no{color:var(--nob)}
+.resinfo{font-size:12px;color:var(--text2)}
+.tracebox{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;overflow-x:auto}
+.tracelbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:8px}
+.tracepath{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.tstate{padding:4px 10px;border-radius:6px;font-family:var(--mono);font-size:12px;font-weight:700;background:var(--nf);color:var(--nt);border:1px solid var(--nb);transition:all .2s}
+.tstate.cur{background:var(--af);border-color:var(--ab);color:var(--ab);transform:scale(1.05)}
+.tstate.acc{background:var(--okf);border-color:var(--okb);color:var(--okb)}
+.tarr{font-size:11px;color:var(--text3);font-family:var(--mono);display:flex;flex-direction:column;align-items:center}
+.tarr .sym{font-weight:700;color:var(--accent)}.tarr .arw{color:var(--text3)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--text);color:var(--bg);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;transition:transform .3s,opacity .3s;opacity:0;z-index:1000;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sidebar{height:auto;max-height:40vh;border-right:none;border-bottom:1px solid var(--border)}
+  .tlay{grid-template-columns:1fr}
+  .dual{flex-direction:column}
+  .divv{width:auto;height:28px}
+  .arrr{transform:rotate(90deg)}
+}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<!-- HEADER -->
+<header class="hdr">
+  <div class="hdr-logo">
+    <div class="hdr-title">DFA Minimizer</div>
+    <div class="hdr-sub">Theory of Computation</div>
+  </div>
+  <nav class="hdr-nav">
+    <button class="nav-btn active" data-view="builder">Builder</button>
+    <button class="nav-btn" data-view="visualizer">Visualizer</button>
+    <button class="nav-btn" data-view="steps">Steps</button>
+    <button class="nav-btn" data-view="tester">String Tester</button>
+  </nav>
+  <div class="hdr-actions">
+    <button class="ibtn" id="theme-btn" title="Toggle dark mode">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+    <button class="ibtn" id="export-btn" title="Export PNG">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- LAYOUT -->
+<main class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sec">
+      <div class="sec-hdr"><span class="sec-num">01</span><h3>Define DFA</h3></div>
+      <div class="fg"><label class="lbl">States</label><input type="text" id="in-states" class="inp" value="q0,q1,q2,q3,q4" placeholder="q0,q1,q2..."><span class="hint">Comma-separated state names</span></div>
+      <div class="fg"><label class="lbl">Alphabet Σ</label><input type="text" id="in-alpha" class="inp" value="0,1" placeholder="a,b or 0,1..."></div>
+      <div class="frow">
+        <div class="fg f1"><label class="lbl">Start State</label><input type="text" id="in-start" class="inp" value="q0"></div>
+        <div class="fg f1"><label class="lbl">Accept States</label><input type="text" id="in-accept" class="inp" value="q2,q4"></div>
+      </div>
+      <button class="btn-p" id="build-btn">Build Transition Table →</button>
+    </div>
+
+    <div class="sec" id="trans-sec" style="display:none">
+      <div class="sec-hdr"><span class="sec-num">02</span><h3>Transition Function δ</h3></div>
+      <div class="tscroll"><table class="dtbl" id="dtbl"></table></div>
+      <div class="qex">
+        <span class="qex-lbl">Quick load:</span>
+        <button class="chip" onclick="loadEx('ex1')">Example 1</button>
+        <button class="chip" onclick="loadEx('ex2')">Example 2</button>
+        <button class="chip" onclick="loadEx('ex3')">Example 3</button>
+      </div>
+      <button class="btn-p btn-min" id="min-btn">Minimize DFA ✦</button>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hdr"><span class="sec-num">03</span><h3>Visual Options</h3></div>
+      <div class="opts">
+        <label class="tgl"><input type="checkbox" id="o-labels" checked><span class="ttrack"></span><span>Transition labels</span></label>
+        <label class="tgl"><input type="checkbox" id="o-anim" checked><span class="ttrack"></span><span>Animations</span></label>
+        <label class="tgl"><input type="checkbox" id="o-accept" checked><span class="ttrack"></span><span>Highlight accept states</span></label>
+        <label class="tgl"><input type="checkbox" id="o-curved" checked><span class="ttrack"></span><span>Curved arrows</span></label>
+      </div>
+      <div class="fg" style="margin-top:12px">
+        <label class="lbl">Layout</label>
+        <div class="seg" id="lay-seg">
+          <button class="seg-btn active" data-v="circle">Circle</button>
+          <button class="seg-btn" data-v="linear">Linear</button>
+          <button class="seg-btn" data-v="grid">Grid</button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="lbl">Color Scheme</label>
+        <div class="swatches" id="swatches">
+          <button class="sw active" data-sc="violet" style="background:linear-gradient(135deg,#7c3aed,#4f46e5)" title="Violet"></button>
+          <button class="sw" data-sc="teal" style="background:linear-gradient(135deg,#059669,#0891b2)" title="Teal"></button>
+          <button class="sw" data-sc="amber" style="background:linear-gradient(135deg,#d97706,#dc2626)" title="Amber"></button>
+          <button class="sw" data-sc="rose" style="background:linear-gradient(135deg,#e11d48,#9333ea)" title="Rose"></button>
+          <button class="sw" data-sc="slate" style="background:linear-gradient(135deg,#374151,#111827)" title="Slate"></button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <section class="content">
+    <!-- BUILDER -->
+    <div class="view active" id="view-builder">
+      <div class="vhdr">
+        <h2>DFA Graph <span class="vsub">— original automaton</span></h2>
+        <div class="stats" id="dfa-stats"></div>
+      </div>
+      <div class="cbox" id="orig-box">
+        <canvas id="c-orig"></canvas>
+        <div class="cempty" id="e-orig"><div class="eico">◎</div><p>Build your transition table to see the DFA graph</p></div>
+      </div>
+    </div>
+
+    <!-- VISUALIZER -->
+    <div class="view" id="view-visualizer">
+      <div class="vhdr">
+        <h2>Minimization <span class="vsub">— before &amp; after</span></h2>
+        <div id="rbadge" class="rbadge" style="display:none"></div>
+      </div>
+      <div class="dual">
+        <div class="cpane">
+          <div class="plbl">Original DFA</div>
+          <div class="cbox" id="orig2-box">
+            <canvas id="c-orig2"></canvas>
+            <div class="cempty" id="e-orig2"><div class="eico">◎</div><p>Run minimization first</p></div>
+          </div>
+          <div class="pstats" id="pstats-orig"></div>
+        </div>
+        <div class="divv"><div class="arrr">→</div></div>
+        <div class="cpane">
+          <div class="plbl">Minimized DFA</div>
+          <div class="cbox" id="min-box">
+            <canvas id="c-min"></canvas>
+            <div class="cempty" id="e-min"><div class="eico">✦</div><p>Run minimization first</p></div>
+          </div>
+          <div class="pstats" id="pstats-min"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEPS -->
+    <div class="view" id="view-steps">
+      <div class="vhdr">
+        <h2>Minimization Steps <span class="vsub">— table-filling algorithm</span></h2>
+        <div id="steps-nav" style="display:none;display:flex;gap:6px;align-items:center">
+          <button class="ibtn" id="sp-prev">←</button>
+          <span id="sp-ctr" class="sctr">1 / 1</span>
+          <button class="ibtn" id="sp-next">→</button>
+          <button class="btn-sm" id="sp-play">▶ Play</button>
+        </div>
+      </div>
+      <div id="steps-body">
+        <div class="empty-st"><div class="eico">◈</div><p>Run minimization to see step-by-step partition refinement</p></div>
+      </div>
+    </div>
+
+    <!-- TESTER -->
+    <div class="view" id="view-tester">
+      <div class="vhdr"><h2>String Tester <span class="vsub">— real-time acceptance</span></h2></div>
+      <div class="tlay">
+        <div class="tinput">
+          <div class="strwrap">
+            <label class="lbl">Input String</label>
+            <input type="text" id="test-str" class="strinput" placeholder="Type a string…">
+            <div id="chrs" class="chrs"></div>
+            <div class="tctrl">
+              <div class="seg">
+                <button class="seg-btn active" id="t-orig" onclick="setTDFA('orig')">Original DFA</button>
+                <button class="seg-btn" id="t-min" onclick="setTDFA('min')">Minimized DFA</button>
+              </div>
+              <button class="btn-p" style="width:auto;margin-top:0" onclick="runTest()">Test →</button>
+              <button class="btn-sm" onclick="clearTest()">Clear</button>
+            </div>
+          </div>
+          <div id="test-result"></div>
+          <div id="trace-out"></div>
+        </div>
+        <div class="tcanvas">
+          <div class="plbl">Live Trace</div>
+          <div class="cbox" id="test-box" style="flex:1">
+            <canvas id="c-test"></canvas>
+            <div class="cempty" id="e-test"><div class="eico">⟿</div><p>Test a string to see the live trace</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DFA ENGINE  —  Table-Filling / Myhill-Nerode
+═══════════════════════════════════════════════════════════ */
+const Engine = {
+  dfa: null, minResult: null,
+
+  set(states, alpha, start, accept, delta) {
+    this.dfa = { states:[...states], alpha:[...alpha], start, accept:[...accept], delta:JSON.parse(JSON.stringify(delta)) };
+    this.minResult = null;
+    return this._validate();
+  },
+
+  _validate() {
+    const {states,alpha,start,accept,delta} = this.dfa, errs = [];
+    if (!states.length) errs.push('No states defined.');
+    if (!alpha.length) errs.push('Alphabet is empty.');
+    if (!states.includes(start)) errs.push(`Start state "${start}" not in states.`);
+    accept.forEach(s => { if (!states.includes(s)) errs.push(`Accept state "${s}" not in states.`); });
+    states.forEach(s => alpha.forEach(a => {
+      const t = delta[s]?.[a];
+      if (t && t !== '—' && !states.includes(t)) errs.push(`δ(${s},${a})="${t}" is unknown.`);
+    }));
+    return errs;
+  },
+
+  _reachable() {
+    const {start,delta,alpha} = this.dfa, vis = new Set(), q = [start];
+    while (q.length) {
+      const s = q.shift(); if (vis.has(s)) continue; vis.add(s);
+      alpha.forEach(a => { const t=delta[s]?.[a]; if(t&&t!=='—'&&!vis.has(t)) q.push(t); });
+    }
+    return vis;
+  },
+
+  minimize() {
+    const {alpha,start,accept,delta} = this.dfa;
+    const reach = this._reachable();
+    const states = this.dfa.states.filter(s => reach.has(s));
+    const accSet = new Set(accept);
+    const steps = [];
+
+    // ── distinguishable pairs set ──────────────────────────
+    const distKey = (a,b) => [a,b].sort().join('|||');
+    const dist = new Set();
+    const mark = (a,b) => { dist.add(distKey(a,b)); };
+    const isDist = (a,b) => a!==b && dist.has(distKey(a,b));
+
+    // Initial: accept vs non-accept
+    states.forEach(s1 => states.forEach(s2 => {
+      if (s1>=s2) return;
+      if (accSet.has(s1) !== accSet.has(s2)) mark(s1,s2);
+    }));
+
+    const grp0a = states.filter(s=>accSet.has(s));
+    const grp0n = states.filter(s=>!accSet.has(s));
+    let P = [];
+    if (grp0a.length) P.push(new Set(grp0a));
+    if (grp0n.length) P.push(new Set(grp0n));
+
+    steps.push({ label:'Initial Partition', desc:'Separate accepting vs non-accepting states', groups:P.map(g=>[...g]) });
+
+    // Iterative refinement
+    let changed = true, iter = 0;
+    while (changed) {
+      changed = false; iter++;
+      states.forEach(s1 => states.forEach(s2 => {
+        if (s1>=s2 || isDist(s1,s2)) return;
+        for (const a of alpha) {
+          const t1=delta[s1]?.[a]||null, t2=delta[s2]?.[a]||null;
+          if (t1===t2) continue;
+          if (!t1||!t2||isDist(t1,t2)) { mark(s1,s2); changed=true; return; }
+        }
+      }));
+      const newP = this._buildPart(states, isDist);
+      if (!this._partEq(P,newP)) {
+        P = newP;
+        steps.push({ label:`Refinement ${iter}`, desc:'Split groups where transitions lead to different equivalence classes', groups:P.map(g=>[...g]) });
+      }
+    }
+    steps.push({ label:'Fixed Point', desc:'No more splits possible — partition is stable', groups:P.map(g=>[...g]), final:true });
+
+    // State map
+    const sOf = {};
+    P.forEach((g,i) => g.forEach(s => { sOf[s]=`M${i}`; }));
+
+    // Build minimized DFA
+    const mStates = P.map((_,i)=>`M${i}`);
+    const mStart = sOf[start];
+    const mAccept = [...new Set(states.filter(s=>accSet.has(s)).map(s=>sOf[s]))];
+    const mDelta = {};
+    mStates.forEach(ms => {
+      mDelta[ms] = {};
+      const rep = states.find(s=>sOf[s]===ms);
+      alpha.forEach(a => { const t=rep?(delta[rep]?.[a]||null):null; mDelta[ms][a]=(t&&sOf[t])||null; });
+    });
+
+    // Distinguishability matrix
+    const matrix = {};
+    states.forEach(s1 => { matrix[s1]={}; states.forEach(s2 => { matrix[s1][s2]=s1===s2?'self':(isDist(s1,s2)?'dist':'eq'); }); });
+
+    this.minResult = { minDFA:{states:mStates,alpha,start:mStart,accept:mAccept,delta:mDelta}, steps, partition:P, stateOf:sOf, matrix, origStates:states };
+    return this.minResult;
+  },
+
+  _buildPart(states, isDist) {
+    const assigned = new Map(), groups = [];
+    states.forEach(s => {
+      if (assigned.has(s)) return;
+      const g = [s]; assigned.set(s, groups.length);
+      states.forEach(s2 => {
+        if (assigned.has(s2)||s2===s) return;
+        if (!isDist(s,s2) && g.every(x=>!isDist(x,s2))) { g.push(s2); assigned.set(s2,groups.length); }
+      });
+      groups.push(new Set(g));
+    });
+    return groups;
+  },
+
+  _partEq(A,B) {
+    if (A.length!==B.length) return false;
+    return A.every(a => B.some(b => a.size===b.size && [...a].every(x=>b.has(x))));
+  },
+
+  testStr(str, d) {
+    d = d || this.dfa; if (!d) return null;
+    const trace = [{state:d.start,char:null}];
+    let cur = d.start, ok = true;
+    for (const ch of str) {
+      if (!d.alpha.includes(ch)) { ok=false; trace.push({state:'∅',char:ch,dead:true}); break; }
+      const nxt = d.delta[cur]?.[ch];
+      if (!nxt) { ok=false; trace.push({state:'∅',char:ch,dead:true}); break; }
+      cur = nxt; trace.push({state:cur,char:ch});
+    }
+    return { accepted: ok && d.accept.includes(cur), trace, finalState:cur };
+  }
+};
+
+
+/* ═══════════════════════════════════════════════════════════
+   CANVAS RENDERER  —  Crystal-clear HiDPI arrows & nodes
+═══════════════════════════════════════════════════════════ */
+class Renderer {
+  constructor(canvasId) {
+    this.cv  = document.getElementById(canvasId);
+    this.ctx = this.cv.getContext('2d');
+    this.dfa = null;
+    this.pos = {};
+    this.opts = { layout:'circle', labels:true, animate:true, accept:true, curved:true };
+    this.hlPath      = [];
+    this.activeTrans = null;
+    this.activeStates = new Set();
+    this.pulses   = {};
+    this.particles = [];
+    this._raf = null;
+    this.ro = new ResizeObserver(() => this._resize());
+    this.ro.observe(this.cv.parentElement);
+    this._resize();
+  }
+
+  /* ── HiDPI resize ── */
+  _resize() {
+    const parent = this.cv.parentElement;
+    const dpr = window.devicePixelRatio || 1;
+    const W = parent.clientWidth, H = parent.clientHeight;
+    this.cv.width  = W * dpr;
+    this.cv.height = H * dpr;
+    this.cv.style.width  = W + 'px';
+    this.cv.style.height = H + 'px';
+    this._dpr = dpr;
+    if (this.dfa) this._layout();
+    this._draw();
+  }
+
+  /* ── Public API ── */
+  setDFA(dfa) {
+    this.dfa = dfa;
+    this.hlPath=[]; this.activeTrans=null;
+    this.activeStates.clear(); this.particles=[]; this.pulses={};
+    this._layout(); this._draw();
+  }
+  setOpts(o) { Object.assign(this.opts, o); if (this.dfa) this._layout(); this._draw(); }
+
+  /* ── Layout ── */
+  _layout() {
+    const {states} = this.dfa, n = states.length;
+    const dpr = this._dpr||1;
+    const W = this.cv.width/dpr, H = this.cv.height/dpr;
+    const R = this._R();
+    const pad = R + 48;
+
+    if (this.opts.layout === 'circle') {
+      const cx=W/2, cy=H/2;
+      const r = Math.min(W,H)/2 - pad;
+      states.forEach((s,i) => {
+        const a = (2*Math.PI*i/n) - Math.PI/2;
+        this.pos[s] = { x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) };
+      });
+    } else if (this.opts.layout === 'linear') {
+      const gap = (W-2*pad) / Math.max(n-1,1);
+      states.forEach((s,i) => { this.pos[s] = { x: pad + i*gap, y: H/2 }; });
+    } else {
+      const cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n/cols);
+      const gx = (W-2*pad)/Math.max(cols-1,1), gy = (H-2*pad)/Math.max(rows-1,1);
+      states.forEach((s,i) => {
+        const col = i%cols, row = Math.floor(i/cols);
+        this.pos[s] = {
+          x: pad + col*(cols>1?gx:0) + (cols===1?(W-2*pad)/2:0),
+          y: pad + row*(rows>1?gy:0) + (rows===1?(H-2*pad)/2:0)
+        };
+      });
+    }
+  }
+
+  /* ── Color helpers ── */
+  _colors() {
+    const cs = getComputedStyle(document.documentElement);
+    const g = v => cs.getPropertyValue(v).trim();
+    const isDark = document.documentElement.hasAttribute('data-dark');
+    return {
+      nf:g('--nf'), nb:g('--nb'), nt:g('--nt'),
+      ar:g('--ar'), sa:g('--sa'),
+      af:g('--af'), ab:g('--ab'),
+      okf:g('--okf'), okb:g('--okb'),
+      edge:g('--text3'), text:g('--text'),
+      bg2:g('--bg2'), accent:g('--accent'),
+      bg3:g('--bg3'),
+      lblBg: isDark ? 'rgba(26,25,23,0.90)' : 'rgba(255,255,255,0.92)',
+      lblBorder: isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)',
+    };
+  }
+
+  _R() {
+    if (!this.dfa) return 28;
+    const dpr = this._dpr||1;
+    const W = this.cv.width/dpr, H = this.cv.height/dpr;
+    return Math.max(20, Math.min(32, Math.min(W,H) / (this.dfa.states.length*1.9 + 3)));
+  }
+
+  /* ── Main draw  ── */
+  _draw() {
+    const ctx = this.ctx;
+    const dpr = this._dpr||1;
+    const W = this.cv.width, H = this.cv.height;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // scale once for HiDPI
+    ctx.clearRect(0, 0, W/dpr, H/dpr);
+    if (!this.dfa) { ctx.restore(); return; }
+    const C = this._colors(), R = this._R();
+    this._drawEdges(ctx, C, R);
+    this._drawParticles(ctx, C);
+    this.dfa.states.forEach(s => this._drawNode(ctx, s, C, R));
+    ctx.restore();
+  }
+
+  /* ── Edge grouping ── */
+  _buildEdgeMap() {
+    const {states,alpha,delta} = this.dfa;
+    const em = {};
+    states.forEach(s => alpha.forEach(a => {
+      const t = delta[s]?.[a]; if (!t) return;
+      const k = `${s}|||${t}`;
+      if (!em[k]) em[k] = { from:s, to:t, syms:[] };
+      em[k].syms.push(a);
+    }));
+    return em;
+  }
+
+  _drawEdges(ctx, C, R) {
+    const em = this._buildEdgeMap();
+    Object.values(em).forEach(e => {
+      const {from, to, syms} = e;
+      const lbl = syms.join(', ');
+      const isAct  = this.activeTrans?.from===from && this.activeTrans?.to===to;
+      const inPath  = this.hlPath.length>1 &&
+        this.hlPath.some((_,i) => i<this.hlPath.length-1 && this.hlPath[i]===from && this.hlPath[i+1]===to);
+      const hasBidi = !!em[`${to}|||${from}`];
+      if (from === to) { this._selfLoop(ctx, from, lbl, C, R, isAct||inPath); }
+      else              { this._edge(ctx, from, to, lbl, C, R, hasBidi, isAct, inPath); }
+    });
+  }
+
+  /* ── Single directed edge ── */
+  _edge(ctx, from, to, lbl, C, R, bidi, isAct, inPath) {
+    const p1 = this.pos[from], p2 = this.pos[to];
+    if (!p1||!p2) return;
+
+    const dx = p2.x-p1.x, dy = p2.y-p1.y;
+    const len = Math.sqrt(dx*dx + dy*dy) || 1;
+    const ux = dx/len, uy = dy/len;
+    // perpendicular unit vector (left-hand side)
+    const px = -uy, py = ux;
+
+    const col = isAct ? C.ab : inPath ? C.okb : C.edge;
+    const lw  = isAct ? 2.5  : inPath ? 2.2   : 1.5;
+
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.fillStyle   = col;
+    ctx.lineWidth   = lw;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+
+    if (this.opts.curved || bidi) {
+      // curvature: larger for bidi, subtle for one-way
+      const bow = bidi ? R * 1.2 : R * 0.4;
+      // start/end points on node circumference, shifted perpendicular
+      const sx = p1.x + ux*R + px*bow*0.18;
+      const sy = p1.y + uy*R + py*bow*0.18;
+      // end point: pull back more so arrowhead tip lands exactly on node edge
+      const arrowSz = R * 0.44;
+      const ex0 = p2.x - ux*R + px*bow*0.18;
+      const ey0 = p2.y - uy*R + py*bow*0.18;
+      // control point
+      const mx = (p1.x + p2.x)/2 + px*bow;
+      const my = (p1.y + p2.y)/2 + py*bow;
+      // tangent at end of quadratic: direction from ctrl to end
+      const tangDir = Math.atan2(ey0 - my, ex0 - mx);
+      // shorten the line endpoint by arrowhead size so tip lands on node edge
+      const ex = ex0 - Math.cos(tangDir) * arrowSz;
+      const ey = ey0 - Math.sin(tangDir) * arrowSz;
+
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.quadraticCurveTo(mx, my, ex, ey);
+      ctx.stroke();
+
+      this._arrowHead(ctx, ex0, ey0, tangDir, col, arrowSz);
+
+      if (this.opts.labels) {
+        // Label at 60% along curve (closer to destination for readability)
+        const t = 0.5;
+        const lx = (1-t)*(1-t)*sx + 2*(1-t)*t*mx + t*t*ex;
+        const ly = (1-t)*(1-t)*sy + 2*(1-t)*t*my + t*t*ey;
+        this._label(ctx, lbl, lx, ly, C, isAct||inPath);
+      }
+    } else {
+      // Straight
+      const sx = p1.x + ux*R, sy = p1.y + uy*R;
+      const ex = p2.x - ux*R, ey = p2.y - uy*R;
+      ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
+      this._arrowHead(ctx, ex, ey, Math.atan2(dy, dx), col, R*0.44);
+      if (this.opts.labels) this._label(ctx, lbl, (sx+ex)/2, (sy+ey)/2 - 10, C, isAct||inPath);
+    }
+    ctx.restore();
+  }
+
+  /* ── Self-loop ── */
+  _selfLoop(ctx, state, lbl, C, R, isAct) {
+    const p = this.pos[state]; if (!p) return;
+    const col = isAct ? C.ab : C.edge;
+    const lw  = isAct ? 2.5 : 1.5;
+
+    // Loop sits directly above the node
+    const loopR  = R * 0.78;
+    const cx = p.x;
+    const cy = p.y - R - loopR + 2;
+
+    ctx.save();
+    ctx.strokeStyle = col;
+    ctx.lineWidth   = lw;
+    ctx.lineCap     = 'round';
+
+    // Draw a full circle for the self-loop
+    ctx.beginPath();
+    ctx.arc(cx, cy, loopR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Arrowhead on the right side of the loop, tangent pointing downward (clockwise)
+    const aAngle = Math.PI * 0.52;
+    const arrowX = cx + loopR * Math.cos(aAngle);
+    const arrowY = cy + loopR * Math.sin(aAngle);
+    const tangAngle = aAngle + Math.PI / 2;
+    this._arrowHead(ctx, arrowX, arrowY, tangAngle, col, R * 0.42);
+
+    // Label above the loop
+    if (this.opts.labels) {
+      this._label(ctx, lbl, cx, cy - loopR - 8, C, isAct);
+    }
+    ctx.restore();
+  }
+
+  /* ── Crisp filled arrowhead ── */
+  _arrowHead(ctx, x, y, angle, col, sz) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-sz, -sz*0.45);
+    ctx.lineTo(-sz,  sz*0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /* ── Edge label with themed background ── */
+  _label(ctx, text, x, y, C, active) {
+    ctx.save();
+    ctx.font = `700 11px 'Space Mono',monospace`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(text).width;
+    const bw = tw + 10, bh = 17, br = 5;
+
+    // Background pill
+    ctx.fillStyle   = C.lblBg;
+    ctx.strokeStyle = C.lblBorder;
+    ctx.lineWidth   = 1;
+    ctx.beginPath();
+    ctx.roundRect(x-bw/2, y-bh/2, bw, bh, br);
+    ctx.fill();
+    ctx.stroke();
+
+    // Text
+    ctx.fillStyle = active ? C.ab : C.nb;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  /* ── Node ── */
+  _drawNode(ctx, state, C, R) {
+    const p = this.pos[state]; if (!p) return;
+    const {accept} = this.dfa;
+    const isAcc = accept.includes(state) && this.opts.accept;
+    const isSt  = state === this.dfa.start;
+    const isAct = this.activeStates.has(state) || this.hlPath.includes(state);
+    const isFin = this.hlPath.length>0 && this.hlPath[this.hlPath.length-1]===state;
+    const pulse = this.pulses[state] || 0;
+
+    // Soft glow ring when active / pulsing
+    if (isAct || pulse > 0) {
+      const glowR = R + 12 + pulse*8;
+      const gr = ctx.createRadialGradient(p.x, p.y, R*0.5, p.x, p.y, glowR);
+      const glowCol = (isFin && accept.includes(state)) ? '5,150,105' : '217,119,6';
+      gr.addColorStop(0, `rgba(${glowCol},.25)`);
+      gr.addColorStop(1, `rgba(${glowCol},0)`);
+      ctx.beginPath(); ctx.arc(p.x, p.y, glowR, 0, 2*Math.PI);
+      ctx.fillStyle = gr; ctx.fill();
+    }
+
+    // Node fill
+    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, 2*Math.PI);
+    let fillCol = C.nf;
+    if      (isFin && accept.includes(state)) fillCol = C.okf;
+    else if (isAct)                           fillCol = C.af;
+    ctx.fillStyle = fillCol;
+    ctx.fill();
+
+    // Node border
+    const borderCol = isAct ? (accept.includes(state)&&isFin ? C.okb : C.ab) : C.nb;
+    ctx.strokeStyle = borderCol;
+    ctx.lineWidth   = isAct ? 2.8 : 2;
+    ctx.stroke();
+
+    // Accept double ring (inner ring, 5px inside)
+    if (isAcc) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, R - 5, 0, 2*Math.PI);
+      ctx.strokeStyle = isAct ? (isFin ? C.okb : C.ab) : C.ar;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    }
+
+    // Start arrow (→ pointing into node from left)
+    if (isSt) {
+      const arrowLen = 22;
+      ctx.strokeStyle = C.sa;
+      ctx.lineWidth   = 2;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x - R - arrowLen, p.y);
+      ctx.lineTo(p.x - R - 1,        p.y);
+      ctx.stroke();
+      this._arrowHead(ctx, p.x - R, p.y, 0, C.sa, R*0.42);
+    }
+
+    // State label
+    ctx.fillStyle    = isAct ? (isFin&&accept.includes(state) ? C.okb : C.ab) : C.nt;
+    ctx.font         = `700 ${Math.max(10, Math.round(R*0.52))}px 'Space Mono',monospace`;
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(state, p.x, p.y);
+  }
+
+  /* ── Particles ── */
+  _drawParticles(ctx, C) {
+    this.particles = this.particles.filter(p => p.life > 0);
+    this.particles.forEach(p => {
+      ctx.save();
+      ctx.globalAlpha = p.life * p.life;   // quadratic fade
+      ctx.fillStyle   = C.ab;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 2*Math.PI); ctx.fill();
+      ctx.restore();
+      p.x += p.vx; p.y += p.vy;
+      p.vx *= 0.92; p.vy *= 0.92;          // dampen
+      p.life -= 0.05;
+    });
+  }
+
+  _burst(state) {
+    const p = this.pos[state]; if (!p) return;
+    for (let i = 0; i < 10; i++) {
+      const a = (Math.PI*2*i)/10;
+      const spd = 1.5 + Math.random()*1.5;
+      this.particles.push({ x:p.x, y:p.y, vx:Math.cos(a)*spd, vy:Math.sin(a)*spd, r:2.5, life:1 });
+    }
+  }
+
+  /* ── Pulse animation (smooth rAF loop) ── */
+  _pulse(state, ph=0) {
+    if (ph > 1) { delete this.pulses[state]; this._draw(); return; }
+    this.pulses[state] = Math.sin(ph * Math.PI);
+    this._draw();
+    requestAnimationFrame(() => this._pulse(state, ph + 0.06));
+  }
+
+  /* ── Trace animation ── */
+  async animTrace(trace, spd=420) {
+    if (!this.opts.animate) {
+      this.hlPath = trace.map(t => t.state); this._draw(); return;
+    }
+    this.hlPath=[]; this.activeStates.clear(); this.activeTrans=null;
+    for (let i=0; i<trace.length; i++) {
+      const {state} = trace[i];
+      this.activeStates.clear(); this.activeStates.add(state);
+      this.hlPath.push(state);
+      if (i > 0) { this.activeTrans = {from:trace[i-1].state, to:state}; this._burst(state); }
+      this._pulse(state);
+      await new Promise(r => setTimeout(r, spd));
+    }
+    this.activeTrans = null; this._draw();
+  }
+
+  clear()   { this.hlPath=[]; this.activeStates.clear(); this.activeTrans=null; this.particles=[]; this.pulses={}; this._draw(); }
+  destroy() { this.ro.disconnect(); }
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+   APP CONTROLLER
+═══════════════════════════════════════════════════════════ */
+let DFA=null, minRes=null, tDFAType='orig';
+const R={};
+
+const GRPC=[
+  ['#ede9fe','#7c3aed','#4c1d95'],['#d1fae5','#059669','#064e3b'],
+  ['#fef3c7','#d97706','#78350f'],['#dbeafe','#2563eb','#1e3a8a'],
+  ['#fce7f3','#db2777','#831843'],['#e0f2fe','#0284c7','#0c4a6e'],
+  ['#dcfce7','#16a34a','#14532d'],['#fff7ed','#ea580c','#7c2d12'],
+];
+
+document.addEventListener('DOMContentLoaded',()=>{
+  R.orig  = new Renderer('c-orig');
+  R.orig2 = new Renderer('c-orig2');
+  R.min   = new Renderer('c-min');
+  R.test  = new Renderer('c-test');
+
+  // Nav
+  document.querySelectorAll('.nav-btn').forEach(b=>b.addEventListener('click',()=>switchView(b.dataset.view)));
+  document.getElementById('build-btn').addEventListener('click',buildDFA);
+  document.getElementById('min-btn').addEventListener('click',minimizeDFA);
+  document.getElementById('theme-btn').addEventListener('click',()=>{ document.documentElement.toggleAttribute('data-dark'); setTimeout(()=>Object.values(R).forEach(r=>r._draw()),40); });
+  document.getElementById('export-btn').addEventListener('click',()=>{ const a=document.createElement('a');a.href=document.getElementById('c-orig').toDataURL();a.download='dfa.png';a.click();toast('Exported DFA as PNG'); });
+
+  // Layout
+  document.querySelectorAll('#lay-seg .seg-btn').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('#lay-seg .seg-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    Object.values(R).forEach(r=>r.setOpts({layout:b.dataset.v}));
+  }));
+
+  // Swatches
+  document.querySelectorAll('#swatches .sw').forEach(sw=>sw.addEventListener('click',()=>{
+    document.querySelectorAll('#swatches .sw').forEach(x=>x.classList.remove('active')); sw.classList.add('active');
+    document.documentElement.dataset.scheme=sw.dataset.sc;
+    setTimeout(()=>Object.values(R).forEach(r=>r._draw()),20);
+  }));
+
+  // Visual opts
+  ['o-labels','o-anim','o-accept','o-curved'].forEach(id=>{
+    document.getElementById(id).addEventListener('change',syncOpts);
+  });
+
+  // String tester
+  document.getElementById('test-str').addEventListener('input',updateChars);
+  document.getElementById('test-str').addEventListener('keydown',e=>{if(e.key==='Enter')runTest();});
+
+  // Step nav
+  document.getElementById('sp-prev').addEventListener('click',()=>stepNav(-1));
+  document.getElementById('sp-next').addEventListener('click',()=>stepNav(1));
+  document.getElementById('sp-play').addEventListener('click',playSteps);
+
+  // Auto-load example 1
+  loadEx('ex1');
+  setTimeout(()=>{ buildDFA(); setTimeout(minimizeDFA,80); },40);
+});
+
+function switchView(v) {
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  document.querySelector(`.nav-btn[data-view="${v}"]`).classList.add('active');
+  setTimeout(()=>Object.values(R).forEach(r=>{if(r.dfa)r._draw();}),40);
+}
+
+function parseCSV(s){return s.split(',').map(x=>x.trim()).filter(Boolean);}
+
+// ── BUILD ──────────────────────────────────────────────────
+function buildDFA() {
+  const states=parseCSV(document.getElementById('in-states').value);
+  const alpha =parseCSV(document.getElementById('in-alpha').value);
+  const start =document.getElementById('in-start').value.trim();
+  const accept=parseCSV(document.getElementById('in-accept').value);
+  if (!states.length||!alpha.length){toast('Enter states and alphabet');return;}
+  const delta={};
+  states.forEach(s=>{delta[s]={};alpha.forEach(a=>{delta[s][a]='';});});
+  DFA={states,alpha,start,accept,delta}; minRes=null;
+  renderDeltaTable();
+  document.getElementById('trans-sec').style.display='';
+  updateStats();
+  showDFA();
+  toast('Transition table ready — fill in δ values');
+}
+
+function renderDeltaTable() {
+  const {states,alpha,start,accept,delta}=DFA;
+  let h=`<tr><th>δ</th>${alpha.map(a=>`<th>${a}</th>`).join('')}</tr>`;
+  states.forEach(s=>{
+    const cls=accept.includes(s)?'acc':(s===start?'sta':'');
+    const px=s===start?'▶ ':(accept.includes(s)?'✓ ':'');
+    h+=`<tr><td class="rlbl ${cls}">${px}${s}</td>`;
+    alpha.forEach(a=>{ h+=`<td><input type="text" value="${delta[s]?.[a]||''}" placeholder="—" data-s="${s}" data-a="${a}" oninput="setD(this)"></td>`; });
+    h+=`</tr>`;
+  });
+  document.getElementById('dtbl').innerHTML=h;
+}
+
+function setD(inp){if(DFA){DFA.delta[inp.dataset.s][inp.dataset.a]=inp.value.trim();showDFA();}}
+
+function collectDelta(){
+  document.querySelectorAll('#dtbl input[data-s]').forEach(i=>{if(DFA)DFA.delta[i.dataset.s][i.dataset.a]=i.value.trim();});
+}
+
+function showDFA() {
+  [R.orig,R.orig2,R.test].forEach(r=>r.setDFA(DFA));
+  document.getElementById('e-orig').classList.add('gone');
+  document.getElementById('e-orig2').classList.add('gone');
+}
+
+function updateStats(){
+  if(!DFA)return;
+  document.getElementById('dfa-stats').innerHTML=
+    `<span class="spill">${DFA.states.length} states</span><span class="spill">${DFA.alpha.length} symbols</span><span class="spill ac">▶ ${DFA.start}</span><span class="spill ac">✓ ${DFA.accept.join(', ')}</span>`;
+}
+
+// ── MINIMIZE ───────────────────────────────────────────────
+function minimizeDFA() {
+  collectDelta();
+  if (!DFA){toast('Build a DFA first');return;}
+  const errs=Engine.set(DFA.states,DFA.alpha,DFA.start,DFA.accept,DFA.delta);
+  if (errs.length){toast(errs[0]);return;}
+  try { minRes=Engine.minimize(); } catch(e){toast('Error: '+e.message);return;}
+
+  R.min.setDFA(minRes.minDFA);
+  document.getElementById('e-min').classList.add('gone');
+
+  const on=DFA.states.length, mn=minRes.minDFA.states.length;
+  const red=Math.round((1-mn/on)*100);
+  const b=document.getElementById('rbadge');
+  b.style.display=''; b.textContent=`${on} → ${mn} states  (${red}% reduction)`;
+
+  document.getElementById('pstats-orig').innerHTML=`<span class="spill">${on} states</span><span class="spill">${on*DFA.alpha.length} transitions</span>`;
+  document.getElementById('pstats-min').innerHTML=`<span class="spill ac">${mn} states</span><span class="spill ac">${mn*DFA.alpha.length} transitions</span>${red>0?`<span class="spill" style="background:var(--okf);color:var(--okb);border-color:var(--okb)">−${red}%</span>`:''}`;
+
+  renderSteps(minRes);
+  if(tDFAType==='min') R.test.setDFA(minRes.minDFA);
+  toast(`Minimized: ${on} → ${mn} states`);
+  switchView('visualizer');
+}
+
+// ── STEPS ─────────────────────────────────────────────────
+let stepIdx=0, stepPlaying=false;
+
+function renderSteps(res) {
+  const {steps,matrix,origStates}=res;
+  document.getElementById('steps-nav').style.display='flex';
+  stepIdx=0; updateStepCtr(steps.length);
+
+  let h='<div class="steps-wrap">';
+  steps.forEach((step,i)=>{
+    const [,acc,tc]=GRPC[0];
+    h+=`<div class="scard${step.final?' final':''}" style="animation-delay:${i*0.055}s">
+      <div class="scard-hdr"><div class="snum">${i+1}</div><div class="stitle">${step.label}</div><div class="ssub">${step.groups.length} group${step.groups.length!==1?'s':''}</div></div>
+      <div class="sbody"><div class="pgroups">`;
+    step.groups.forEach((g,j)=>{
+      const [bg,bd,tx]=GRPC[j%GRPC.length];
+      h+=`<div class="pgrp" style="background:${bg};border-color:${bd};color:${tx}">{${g.join(', ')}}</div>`;
+    });
+    h+=`</div>${step.desc?`<div class="sdesc">${step.desc}</div>`:''}</div></div>`;
+  });
+
+  // Distinguishability matrix (≤10 states)
+  if (origStates&&origStates.length<=10) {
+    h+=`<div class="scard"><div class="scard-hdr"><div class="snum">✦</div><div class="stitle">Distinguishability Matrix</div><div class="ssub">× dist &nbsp; ≡ equiv</div></div><div class="sbody"><div style="overflow-x:auto"><table class="dtbl2"><tr><th></th>${origStates.slice(0,-1).map(s=>`<th>${s}</th>`).join('')}</tr>`;
+    for (let i=1;i<origStates.length;i++){
+      h+=`<tr><th>${origStates[i]}</th>`;
+      for (let j=0;j<i;j++){
+        const v=matrix[origStates[i]][origStates[j]];
+        h+=v==='dist'?`<td class="dx">×</td>`:v==='eq'?`<td class="deq">≡</td>`:`<td>—</td>`;
+      }
+      h+=`</tr>`;
+    }
+    h+=`</table></div></div></div>`;
+  }
+
+  // State mapping
+  h+=`<div class="scard final"><div class="scard-hdr"><div class="snum">→</div><div class="stitle">State Mapping</div></div><div class="sbody"><table class="mtbl"><tr><th>Original states</th><th>Minimized state</th></tr>`;
+  res.partition.forEach((g,i)=>{
+    const [bg,bd,tx]=GRPC[i%GRPC.length];
+    h+=`<tr><td><span style="background:${bg};color:${tx};border:1px solid ${bd};padding:2px 8px;border-radius:6px;font-weight:700;font-family:var(--mono)">{${[...g].join(', ')}}</span></td><td style="color:var(--accent);font-weight:700;font-family:var(--mono)">M${i}</td></tr>`;
+  });
+  h+=`</table></div></div></div>`;
+
+  document.getElementById('steps-body').innerHTML=h;
+}
+
+function updateStepCtr(total){document.getElementById('sp-ctr').textContent=`${stepIdx+1} / ${total}`;}
+function stepNav(d){
+  if(!minRes)return;
+  stepIdx=Math.max(0,Math.min(minRes.steps.length-1,stepIdx+d));
+  updateStepCtr(minRes.steps.length);
+  const cards=document.querySelectorAll('.scard');
+  if(cards[stepIdx]) cards[stepIdx].scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function playSteps(){
+  if(!minRes)return;
+  const btn=document.getElementById('sp-play');
+  if(stepPlaying){stepPlaying=false;btn.textContent='▶ Play';return;}
+  stepPlaying=true; btn.textContent='⏸ Pause';
+  for(let i=0;i<minRes.steps.length;i++){
+    if(!stepPlaying)break;
+    stepIdx=i; updateStepCtr(minRes.steps.length);
+    const cards=document.querySelectorAll('.scard');
+    if(cards[i]) cards[i].scrollIntoView({behavior:'smooth',block:'nearest'});
+    await new Promise(r=>setTimeout(r,850));
+  }
+  stepPlaying=false; btn.textContent='▶ Play';
+}
+
+// ── STRING TESTER ─────────────────────────────────────────
+function setTDFA(t){
+  tDFAType=t;
+  document.getElementById('t-orig').classList.toggle('active',t==='orig');
+  document.getElementById('t-min').classList.toggle('active',t==='min');
+  const d=t==='min'?(minRes?.minDFA||null):DFA;
+  if(d){R.test.setDFA(d);document.getElementById('e-test').classList.add('gone');}
+}
+
+function updateChars(){
+  const s=document.getElementById('test-str').value;
+  document.getElementById('chrs').innerHTML=s.split('').map(c=>`<span class="ch">${c}</span>`).join('');
+}
+
+async function runTest(){
+  const str=document.getElementById('test-str').value;
+  const d=tDFAType==='min'?(minRes?.minDFA||null):DFA;
+  if(!d){toast('Build a DFA first');return;}
+  const res=Engine.testStr(str,d);
+  if(!res){toast('Build a DFA first');return;}
+
+  document.getElementById('test-result').innerHTML=
+    `<div class="resbox ${res.accepted?'ok':'no'}" style="margin-top:10px">
+      <div class="restitle ${res.accepted?'ok':'no'}">${res.accepted?'✓ Accepted':'✗ Rejected'}</div>
+      <div class="resinfo">${str?`String "${str}" — final state: <b>${res.finalState}</b>`:`Empty string ε — start state: <b>${d.start}</b>`}</div>
+    </div>`;
+
+  let th=`<div class="tracebox" style="margin-top:10px"><div class="tracelbl">State trace</div><div class="tracepath">`;
+  res.trace.forEach((step,i)=>{
+    const fin=i===res.trace.length-1, isAcc=d.accept.includes(step.state);
+    th+=`<span class="tstate ${fin&&isAcc?'acc':''}">${step.state}</span>`;
+    if(i<res.trace.length-1) th+=`<span class="tarr"><span class="sym">${res.trace[i+1].char}</span><span class="arw">→</span></span>`;
+  });
+  th+=`</div></div>`;
+  document.getElementById('trace-out').innerHTML=th;
+
+  document.getElementById('e-test').classList.add('gone');
+
+  // Animate bubbles
+  const bubs=document.querySelectorAll('#chrs .ch');
+  bubs.forEach(b=>b.classList.remove('active','pass','fail'));
+  const spd=Math.min(500,Math.max(180,900/(str.length+1)));
+
+  R.test.clear();
+  Promise.all([
+    R.test.animTrace(res.trace,spd),
+    (async()=>{
+      for(let i=0;i<bubs.length;i++){
+        if(i>0) bubs[i-1].classList.replace('active',res.trace[i]?.dead?'fail':'pass');
+        bubs[i].classList.add('active');
+        await new Promise(r=>setTimeout(r,spd));
+      }
+      if(bubs.length) bubs[bubs.length-1].classList.replace('active',res.accepted?'pass':'fail');
+    })()
+  ]);
+}
+
+function clearTest(){
+  document.getElementById('test-str').value='';
+  document.getElementById('chrs').innerHTML='';
+  document.getElementById('test-result').innerHTML='';
+  document.getElementById('trace-out').innerHTML='';
+  R.test.clear();
+}
+
+// ── OPTIONS SYNC ──────────────────────────────────────────
+function syncOpts(){
+  const o={labels:document.getElementById('o-labels').checked,animate:document.getElementById('o-anim').checked,accept:document.getElementById('o-accept').checked,curved:document.getElementById('o-curved').checked};
+  Object.values(R).forEach(r=>r.setOpts(o));
+}
+
+// ── EXAMPLES ──────────────────────────────────────────────
+const EX={
+  ex1:{states:'q0,q1,q2,q3,q4',alpha:'0,1',start:'q0',accept:'q2,q4',
+    delta:{q0:{'0':'q1','1':'q3'},q1:{'0':'q2','1':'q4'},q2:{'0':'q2','1':'q4'},q3:{'0':'q4','1':'q2'},q4:{'0':'q4','1':'q2'}}},
+  ex2:{states:'A,B,C,D,E,F',alpha:'0,1',start:'A',accept:'C,F',
+    delta:{A:{'0':'B','1':'D'},B:{'0':'C','1':'E'},C:{'0':'C','1':'C'},D:{'0':'E','1':'B'},E:{'0':'F','1':'F'},F:{'0':'F','1':'F'}}},
+  ex3:{states:'s0,s1,s2,s3,s4,s5',alpha:'a,b',start:'s0',accept:'s2,s5',
+    delta:{s0:{a:'s1',b:'s3'},s1:{a:'s2',b:'s4'},s2:{a:'s2',b:'s5'},s3:{a:'s4',b:'s0'},s4:{a:'s5',b:'s1'},s5:{a:'s5',b:'s5'}}},
+};
+
+function loadEx(name){
+  const ex=EX[name]; if(!ex) return;
+  document.getElementById('in-states').value=ex.states;
+  document.getElementById('in-alpha').value=ex.alpha;
+  document.getElementById('in-start').value=ex.start;
+  document.getElementById('in-accept').value=ex.accept;
+  const states=parseCSV(ex.states);
+  const alpha=parseCSV(ex.alpha);
+  DFA={states,alpha,start:ex.start,accept:parseCSV(ex.accept),delta:JSON.parse(JSON.stringify(ex.delta))};
+  renderDeltaTable();
+  document.getElementById('trans-sec').style.display='';
+  updateStats(); showDFA();
+  toast(`Loaded Example ${name.slice(2)}`);
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+let _tt=null;
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+</script>
+</body>
+</html>
